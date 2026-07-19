@@ -1,0 +1,23 @@
+# Dependabot — automated dependency updates + security patches (PRD §9.7).
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 10
+    groups:
+      python-deps:
+        patterns: ["*"]
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule: { interval: "weekly" }
+
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule: { interval: "weekly" }

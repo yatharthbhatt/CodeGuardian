@@ -1,0 +1,126 @@
+[project]
+name = "codeguardian"
+version = "0.1.0"
+description = "CodeGuardian AI — Enterprise-grade multi-agent autonomous code review platform (backend)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Yatharth" }]
+
+# Runtime dependencies. Pinned loosely here; a lockfile (uv.lock / requirements.lock)
+# with hashes is generated in CI for supply-chain integrity (PRD §9.7).
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.5",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+# Postgres driver — used in prod/compose; tests default to SQLite so they need no DB.
+postgres = ["psycopg[binary]>=3.2"]
+# Phase 1 additions (LLM + worker) live behind extras so Phase 0 stays lean.
+phase1 = [
+    "anthropic>=0.39",
+    "celery>=5.4",
+    "redis>=5.0",
+    "PyJWT[crypto]>=2.9",
+    "langgraph>=0.2",
+]
+# Phase 3 additions (repository memory). Lazily imported by the store adapters, so the
+# offline test suite (which uses the in-memory stores) does not require them.
+phase3 = [
+    "neo4j>=5.24",
+    "qdrant-client>=1.11",
+]
+# Phase 5 additions (observability).
+phase5 = [
+    "prometheus-client>=0.21",
+    "opentelemetry-api>=1.27",
+    "opentelemetry-sdk>=1.27",
+]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.7",
+    "mypy>=1.13",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+artifacts = ["app/web/*.html"]
+
+# ----------------------------------------------------------------------------
+# Ruff — linting + formatting
+# ----------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+# A broad, security-aware rule set. S = flake8-bandit (SAST-style checks).
+select = ["E", "F", "I", "B", "UP", "S", "ASYNC", "C4", "SIM", "RUF"]
+ignore = [
+    "S101", # assert used — fine in tests
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"] # test fixtures may use dummy secrets
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's DI idiom puts callables in argument defaults — not a bug (B008).
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Header",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+]
+
+# ----------------------------------------------------------------------------
+# mypy — strict typing (PRD non-negotiable rule #7)
+# ----------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+warn_return_any = true
+no_implicit_reexport = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# These third-party libs ship very elaborate generic signatures; we treat them as
+# opaque so our own code stays strictly typed without fighting their internals.
+# neo4j/qdrant_client are lazily imported by the store adapters (optional deps).
+# The LLM SDKs (anthropic/openai/google) are thin network wrappers with elaborate generic
+# types; we treat them as opaque so our adapters stay simple.
+module = [
+    "celery.*",
+    "langgraph.*",
+    "neo4j.*",
+    "qdrant_client.*",
+    "anthropic.*",
+    "openai.*",
+    "google.*",
+]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+# ----------------------------------------------------------------------------
+# pytest
+# ----------------------------------------------------------------------------
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra -q"
+filterwarnings = ["error::DeprecationWarning:app.*"]

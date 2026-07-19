@@ -1,0 +1,36 @@
+{
+  "comment": "Restrictive seccomp profile for CodeGuardian's untrusted-code sandbox (PRD §9.4). Default-deny with an allowlist of syscalls needed by static analyzers; network, mount, ptrace, and privilege syscalls are NOT allowed.",
+  "defaultAction": "SCMP_ACT_ERRNO",
+  "archMap": [
+    { "architecture": "SCMP_ARCH_X86_64", "subArchitectures": ["SCMP_ARCH_X86", "SCMP_ARCH_X32"] },
+    { "architecture": "SCMP_ARCH_AARCH64", "subArchitectures": ["SCMP_ARCH_ARM"] }
+  ],
+  "syscalls": [
+    {
+      "names": [
+        "read", "write", "open", "openat", "close", "stat", "fstat", "lstat", "newfstatat",
+        "statx", "lseek", "mmap", "mprotect", "munmap", "brk", "rt_sigaction",
+        "rt_sigprocmask", "rt_sigreturn", "ioctl", "pread64", "pwrite64", "readv", "writev",
+        "access", "faccessat", "faccessat2", "pipe", "pipe2", "dup", "dup2", "dup3",
+        "getpid", "gettid", "getppid", "getuid", "geteuid", "getgid", "getegid",
+        "getrandom", "getdents", "getdents64", "getcwd", "chdir", "fchdir", "readlink",
+        "readlinkat", "fcntl", "flock", "fsync", "fdatasync", "ftruncate", "getrlimit",
+        "prlimit64", "sysinfo", "uname", "clock_gettime", "clock_getres", "gettimeofday",
+        "nanosleep", "clock_nanosleep", "futex", "sched_yield", "sched_getaffinity",
+        "set_tid_address", "set_robust_list", "get_robust_list", "rseq", "exit", "exit_group",
+        "wait4", "waitid", "clone3", "execve", "arch_prctl", "poll", "ppoll", "epoll_create1",
+        "epoll_ctl", "epoll_wait", "epoll_pwait", "eventfd2", "memfd_create", "madvise",
+        "mremap", "epoll_pwait2"
+      ],
+      "action": "SCMP_ACT_ALLOW"
+    },
+    {
+      "names": ["clone"],
+      "action": "SCMP_ACT_ALLOW",
+      "comment": "Allow thread creation but NOT new network/user/mount namespaces.",
+      "args": [
+        { "index": 0, "value": 2080505856, "op": "SCMP_CMP_MASKED_EQ", "valueTwo": 0 }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="CodeGuardian AI — a fleet of AI agents reviews every pull request for security, architecture and performance, live and offline." />
+    <title>CodeGuardian AI — autonomous PR security review</title>
+    <style>
+      /* ========================================================================
+         CodeGuardian AI — sharp minimal. White · Black · Orange.
+         Graph-paper grid backdrop · hard edges · tactile clay buttons.
+         ===================================================================== */
+      :root {
+        --bg:            #ffffff;
+        --grid:          rgba(10, 10, 12, 0.055);
+        --grid-strong:   rgba(10, 10, 12, 0.10);
+        --panel:         #ffffff;
+        --panel-2:       #f6f6f4;
+        --panel-inset:   #fbfbf9;
+        --border:        rgba(10, 10, 12, 0.14);
+        --ink:           #0a0a0c;   /* true black-ish for hard edges */
+        --text:          #0a0a0c;
+        --text-dim:      #45464a;
+        --text-mute:     #8a8b90;
+        --accent:        #ff5500;   /* orange */
+        --accent-2:      #ff8a3d;   /* light orange for clay highlight */
+        --accent-deep:   #cc3f00;
+        --accent-soft:   rgba(255, 85, 0, 0.10);
+        --accent-line:   rgba(255, 85, 0, 0.55);
+        --crit: #e11d48;
+        --high: #ff5500;
+        --med:  #d97706;
+        --low:  #2563eb;
+        --info: #6b7280;
+        --good: #059669;
+        --hard:      6px 6px 0 var(--ink);
+        --hard-accent: 7px 7px 0 var(--accent);
+        --clay-primary:
+          0 8px 18px rgba(255, 85, 0, 0.30),
+          inset 0 2px 3px rgba(255, 255, 255, 0.5),
+          inset 0 -6px 11px rgba(150, 42, 0, 0.38);
+        --clay-white:
+          0 7px 15px rgba(10, 10, 12, 0.14),
+          inset 0 2px 3px rgba(255, 255, 255, 0.95),
+          inset 0 -5px 9px rgba(10, 10, 12, 0.12);
+        --r: 2px;          /* sharp corners everywhere… */
+        --r-clay: 15px;    /* …except clay buttons */
+        --mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+        --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial;
+        --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      :root[data-theme="dark"] {
+        --bg:            #0a0a0c;
+        --grid:          rgba(255, 255, 255, 0.055);
+        --grid-strong:   rgba(255, 255, 255, 0.11);
+        --panel:         #141416;
+        --panel-2:       #1b1b1e;
+        --panel-inset:   #101012;
+        --border:        rgba(255, 255, 255, 0.16);
+        --ink:           #f4f4f5;
+        --text:          #f4f4f5;
+        --text-dim:      #b6b7bc;
+        --text-mute:     #75767c;
+        --accent:        #ff6a1f;
+        --accent-2:      #ff9d5c;
+        --accent-deep:   #ff5500;
+        --accent-soft:   rgba(255, 106, 31, 0.14);
+        --accent-line:   rgba(255, 106, 31, 0.6);
+        --crit: #fb7185; --high: #ff8a3d; --med: #fbbf24; --low: #60a5fa; --info: #9ca3af; --good: #34d399;
+        --hard:      6px 6px 0 var(--ink);
+        --hard-accent: 7px 7px 0 var(--accent);
+        --clay-primary:
+          0 8px 18px rgba(255, 85, 0, 0.34),
+          inset 0 2px 3px rgba(255, 255, 255, 0.28),
+          inset 0 -6px 11px rgba(120, 34, 0, 0.5);
+        --clay-white:
+          0 7px 15px rgba(0, 0, 0, 0.5),
+          inset 0 2px 3px rgba(255, 255, 255, 0.12),
+          inset 0 -5px 9px rgba(0, 0, 0, 0.4);
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        font-family: var(--sans);
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        overflow-x: hidden;
+      }
+      /* fixed graph-paper grid backdrop + faint orange warmth */
+      body::before {
+        content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+        background-color: var(--bg);
+        background-image:
+          radial-gradient(52% 34% at 88% -4%, var(--accent-soft), transparent 68%),
+          linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+          linear-gradient(var(--grid-strong) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid-strong) 1px, transparent 1px);
+        background-size: 100% 100%, 34px 34px, 34px 34px, 170px 170px, 170px 170px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        * { animation: none !important; transition-duration: 0.001ms !important; }
+        .reveal { opacity: 1 !important; transform: none !important; }
+      }
+
+      a { color: inherit; text-decoration: none; }
+      .wrap { width: min(1160px, 92vw); margin: 0 auto; }
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+      ::selection { background: var(--accent); color: #fff; }
+
+      .eyebrow {
+        font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.22em;
+        text-transform: uppercase; color: var(--accent); font-weight: 700;
+        display: inline-flex; align-items: center; gap: 10px;
+      }
+      .eyebrow::before { content: ""; width: 26px; height: 2px; background: var(--accent); }
+
+      .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.6s var(--ease), transform 0.6s var(--ease); }
+      .reveal.in { opacity: 1; transform: none; }
+
+      /* ============================ nav ============================ */
+      header.nav {
+        position: sticky; top: 0; z-index: 40;
+        backdrop-filter: saturate(160%) blur(10px);
+        -webkit-backdrop-filter: saturate(160%) blur(10px);
+        background: color-mix(in srgb, var(--bg) 82%, transparent);
+        border-bottom: 1.5px solid transparent;
+        transition: border-color 0.25s var(--ease);
+      }
+      header.nav.scrolled { border-bottom-color: var(--ink); }
+      .nav-in { display: flex; align-items: center; gap: 22px; padding: 15px 0; }
+      .brand { display: flex; align-items: center; gap: 11px; font-weight: 800; letter-spacing: -0.03em; font-size: 16px; text-transform: uppercase; }
+      .brand .mark {
+        width: 30px; height: 30px; border-radius: var(--r);
+        background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 16px;
+        box-shadow: 3px 3px 0 var(--ink);
+      }
+      .nav-spacer { flex: 1; }
+      .nav .link {
+        color: var(--text-dim); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+        transition: color 0.2s var(--ease); position: relative; padding-bottom: 2px;
+      }
+      .nav .link::after { content: ""; position: absolute; left: 0; bottom: -2px; width: 0; height: 2px; background: var(--accent); transition: width 0.25s var(--ease); }
+      .nav .link:hover { color: var(--text); }
+      .nav .link:hover::after { width: 100%; }
+      @media (max-width: 720px) { .nav .link { display: none; } }
+      .icon-btn {
+        border: 1.5px solid var(--ink); background: var(--panel); color: var(--text);
+        width: 38px; height: 36px; border-radius: var(--r); cursor: pointer; font-size: 15px;
+        display: grid; place-items: center; transition: all 0.18s var(--ease);
+      }
+      .icon-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 3px 3px 0 var(--ink); transform: translate(-1px, -1px); }
+
+      /* ============================ clay buttons ============================ */
+      .btn {
+        font: inherit; font-weight: 700; cursor: pointer; border-radius: var(--r-clay); padding: 13px 22px;
+        border: none; display: inline-flex; align-items: center; gap: 8px; font-size: 15px; letter-spacing: -0.01em;
+        transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease), filter 0.16s var(--ease);
+      }
+      .btn.primary { background: linear-gradient(150deg, var(--accent-2), var(--accent)); color: #fff; box-shadow: var(--clay-primary); }
+      .btn.primary:hover { transform: translateY(-2px); filter: brightness(1.04); box-shadow: 0 12px 24px rgba(255,85,0,0.4), inset 0 2px 3px rgba(255,255,255,0.5), inset 0 -6px 11px rgba(150,42,0,0.38); }
+      .btn.primary:active { transform: translateY(1px); box-shadow: 0 3px 8px rgba(255,85,0,0.3), inset 0 2px 6px rgba(150,42,0,0.45); }
+      .btn.ghost { background: linear-gradient(150deg, #ffffff, #ededea); color: var(--ink); box-shadow: var(--clay-white); }
+      :root[data-theme="dark"] .btn.ghost { background: linear-gradient(150deg, #222226, #171719); color: var(--ink); }
+      .btn.ghost:hover { transform: translateY(-2px); box-shadow: 0 11px 20px rgba(10,10,12,0.18), inset 0 2px 3px rgba(255,255,255,0.95), inset 0 -5px 9px rgba(10,10,12,0.12); }
+      .btn.ghost:active { transform: translateY(1px); }
+
+      /* ============================ hero ============================ */
+      .hero { padding: 78px 0 46px; }
+      .hero-grid { display: grid; grid-template-columns: 1.04fr 1fr; gap: 54px; align-items: center; }
+      @media (max-width: 940px) { .hero-grid { grid-template-columns: 1fr; gap: 36px; } }
+      .badge {
+        display: inline-flex; align-items: center; gap: 9px; font-size: 12px; font-weight: 600;
+        color: var(--text); background: var(--panel); border: 1.5px solid var(--ink);
+        padding: 6px 13px 6px 10px; border-radius: var(--r); box-shadow: 3px 3px 0 var(--ink); margin-bottom: 26px;
+        text-transform: uppercase; letter-spacing: 0.04em;
+      }
+      .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+      h1 {
+        font-size: clamp(42px, 6.6vw, 72px); line-height: 0.98; letter-spacing: -0.045em;
+        margin: 0; text-wrap: balance; font-weight: 800; text-transform: uppercase;
+      }
+      h1 .grad { color: var(--accent); -webkit-text-stroke: 0; position: relative; }
+      .lede { color: var(--text-dim); font-size: clamp(16px, 2.1vw, 19px); margin-top: 24px; max-width: 46ch; }
+      .cta-row { display: flex; gap: 14px; margin-top: 32px; flex-wrap: wrap; }
+      .stats { display: flex; gap: 0; margin-top: 44px; flex-wrap: wrap; border: 1.5px solid var(--ink); border-radius: var(--r); overflow: hidden; width: fit-content; box-shadow: var(--hard); }
+      .stat { background: var(--panel); padding: 16px 22px; min-width: 118px; border-right: 1.5px solid var(--ink); }
+      .stat:last-child { border-right: none; }
+      .stat .n { font-family: var(--mono); font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+      .stat .l { font-size: 11.5px; color: var(--text-mute); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+      @media (max-width: 480px) { .stats { flex-direction: column; width: 100%; } .stat { border-right: none; border-bottom: 1.5px solid var(--ink); } .stat:last-child { border-bottom: none; } }
+
+      /* ============================ console panel ============================ */
+      .console {
+        background: var(--panel); border: 1.5px solid var(--ink); border-radius: var(--r);
+        box-shadow: var(--hard-accent); overflow: hidden; position: relative;
+      }
+      .console-bar {
+        display: flex; align-items: center; gap: 10px; padding: 12px 15px;
+        border-bottom: 1.5px solid var(--ink); background: var(--panel-2);
+      }
+      .dots { display: flex; gap: 7px; }
+      .dots i { width: 11px; height: 11px; border-radius: 50%; background: var(--ink); display: inline-block; }
+      .dots i:nth-child(1) { background: var(--accent); }
+      .console-title { font-family: var(--mono); font-size: 12px; color: var(--text-mute); margin-left: 4px; }
+      .tabs { display: flex; gap: 0; padding: 0; border-bottom: 1.5px solid var(--border); }
+      .tab {
+        font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; border: none; background: none;
+        color: var(--text-mute); padding: 13px 18px; transition: all 0.18s var(--ease); text-transform: uppercase; letter-spacing: 0.05em;
+        border-bottom: 2px solid transparent; margin-bottom: -1.5px;
+      }
+      .tab:hover { color: var(--text); }
+      .tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+      .pane { padding: 15px; }
+      .field-row { display: flex; gap: 8px; margin-bottom: 9px; }
+      input[type="text"], textarea {
+        font-family: var(--mono); font-size: 13px; color: var(--text); background: var(--panel-inset);
+        border: 1.5px solid var(--border); border-radius: var(--r); padding: 11px 13px; width: 100%; resize: vertical;
+        transition: border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
+      }
+      input[type="text"]::placeholder, textarea::placeholder { color: var(--text-mute); }
+      textarea { min-height: 216px; line-height: 1.55; tab-size: 4; white-space: pre; overflow-x: auto; }
+      input:focus, textarea:focus { border-color: var(--accent); outline: none; box-shadow: 3px 3px 0 var(--accent); }
+      .pane-actions { display: flex; align-items: center; gap: 14px; margin-top: 13px; flex-wrap: wrap; }
+      .pane-actions .spacer { flex: 1; }
+      .linklike { background: none; border: none; color: var(--text-dim); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: color 0.18s var(--ease); display: inline-flex; align-items: center; gap: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+      .linklike:hover { color: var(--accent); }
+      /* scanner sweep while reviewing */
+      .scan { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.3s var(--ease); }
+      .console.busy .scan { opacity: 1; }
+      .console.busy .scan::after {
+        content: ""; position: absolute; left: 0; right: 0; height: 46%;
+        background: linear-gradient(180deg, transparent, var(--accent-soft), transparent);
+        animation: sweep 1.1s ease-in-out infinite;
+      }
+      @keyframes sweep { 0% { top: -46%; } 100% { top: 100%; } }
+
+      /* ============================ results ============================ */
+      #results { padding: 22px 0 24px; scroll-margin-top: 84px; }
+      .results-head {
+        display: flex; align-items: center; gap: 30px; flex-wrap: wrap; margin-bottom: 10px;
+        background: var(--panel); border: 1.5px solid var(--ink); border-radius: var(--r);
+        padding: 22px 26px; box-shadow: var(--hard);
+      }
+      .ring-wrap { display: flex; align-items: center; gap: 20px; }
+      .ring { --v: 0; width: 116px; height: 116px; transform: rotate(-90deg); }
+      .ring circle { fill: none; stroke-width: 10; }
+      .ring .track { stroke: var(--border); }
+      .ring .val { stroke: var(--good); stroke-linecap: butt; transition: stroke-dashoffset 1.1s var(--ease), stroke 0.4s var(--ease); }
+      .ring-label { position: absolute; inset: 0; display: grid; place-items: center; transform: none; }
+      .ring-num { font-family: var(--mono); font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+      .ring-den { font-size: 11px; color: var(--text-mute); font-family: var(--mono); }
+      .verdict {
+        font-family: var(--mono); font-size: 13px; font-weight: 700; letter-spacing: 0.05em;
+        padding: 8px 14px; border-radius: var(--r); border: 1.5px solid; display: inline-block; text-transform: uppercase;
+      }
+      .v-block   { background: color-mix(in srgb, var(--crit) 12%, var(--panel)); color: var(--crit); border-color: var(--crit); }
+      .v-comment { background: color-mix(in srgb, var(--med) 14%, var(--panel));  color: var(--med);  border-color: var(--med); }
+      .v-approve { background: color-mix(in srgb, var(--good) 13%, var(--panel)); color: var(--good); border-color: var(--good); }
+      .chips { display: flex; gap: 0; flex-wrap: wrap; margin-left: auto; border: 1.5px solid var(--ink); border-radius: var(--r); overflow: hidden; }
+      .chip { font-family: var(--mono); font-size: 12px; color: var(--text-dim); background: var(--panel); padding: 9px 13px; border-right: 1.5px solid var(--border); text-transform: uppercase; letter-spacing: 0.03em; }
+      .chip:last-child { border-right: none; }
+      .chip b { color: var(--accent); font-variant-numeric: tabular-nums; margin-left: 4px; }
+
+      .section-label { display: flex; align-items: baseline; gap: 12px; margin: 32px 0 14px; }
+      .section-label h3 { font-size: 16px; margin: 0; letter-spacing: 0.02em; font-weight: 800; text-transform: uppercase; }
+      .section-label span { font-family: var(--mono); font-size: 12px; color: var(--text-mute); }
+
+      .finding {
+        display: grid; grid-template-columns: 5px 1fr; background: var(--panel);
+        border: 1.5px solid var(--border); border-radius: var(--r); overflow: hidden; margin-bottom: 11px;
+        transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease), border-color 0.16s var(--ease);
+      }
+      .finding:hover { transform: translate(-2px, -2px); box-shadow: var(--hard); border-color: var(--ink); }
+      .finding .stripe { background: var(--info); }
+      .finding.sev-critical .stripe { background: var(--crit); }
+      .finding.sev-high .stripe { background: var(--high); }
+      .finding.sev-medium .stripe { background: var(--med); }
+      .finding.sev-low .stripe { background: var(--low); }
+      .finding .body { padding: 15px 18px; }
+      .finding .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+      .sev-pill { font-family: var(--mono); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 9px; border-radius: var(--r); color: #fff; }
+      .sev-critical .sev-pill { background: var(--crit); }
+      .sev-high .sev-pill { background: var(--high); }
+      .sev-medium .sev-pill { background: var(--med); color: #241503; }
+      .sev-low .sev-pill { background: var(--low); }
+      .finding h4 { margin: 0; font-size: 15.5px; font-weight: 700; letter-spacing: -0.01em; }
+      .loc { font-family: var(--mono); font-size: 12px; color: var(--text-mute); }
+      .finding .expl { margin-top: 10px; font-size: 14px; color: var(--text-dim); display: grid; gap: 4px; }
+      .finding .expl b { color: var(--text); font-weight: 700; margin-right: 4px; }
+      .finding .meta { margin-top: 11px; display: flex; gap: 8px; flex-wrap: wrap; }
+      .tag { font-family: var(--mono); font-size: 11px; color: var(--text-mute); border: 1.5px solid var(--border); background: var(--panel-2); border-radius: var(--r); padding: 3px 8px; text-transform: uppercase; letter-spacing: 0.03em; }
+
+      .fix { background: var(--panel); border: 1.5px solid var(--border); border-radius: var(--r); padding: 15px 18px; margin-bottom: 11px; }
+      .fix .loc { margin-bottom: 10px; display: block; }
+      .diff { font-family: var(--mono); font-size: 12.5px; border-radius: var(--r); overflow-x: auto; border: 1.5px solid var(--border); }
+      .diff div { padding: 7px 13px; white-space: pre; }
+      .diff .del { background: color-mix(in srgb, var(--crit) 10%, transparent); color: color-mix(in srgb, var(--crit) 88%, var(--text)); }
+      .diff .add { background: color-mix(in srgb, var(--good) 10%, transparent); color: color-mix(in srgb, var(--good) 88%, var(--text)); }
+
+      .empty { text-align: center; color: var(--text-mute); padding: 34px; font-family: var(--mono); font-size: 13px; background: var(--panel); border: 1.5px dashed var(--ink); border-radius: var(--r); }
+      .err { color: var(--crit); font-size: 14px; padding: 12px 16px; background: color-mix(in srgb, var(--crit) 8%, var(--panel)); border: 1.5px solid var(--crit); border-radius: var(--r); margin-bottom: 8px; }
+
+      /* ============================ how / about ============================ */
+      .section { padding: 66px 0 20px; }
+      .section h3.head { font-size: clamp(26px, 3.6vw, 34px); margin: 14px 0 0; letter-spacing: -0.035em; font-weight: 800; text-transform: uppercase; }
+      .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 32px; border: 1.5px solid var(--ink); border-radius: var(--r); overflow: hidden; box-shadow: var(--hard); }
+      @media (max-width: 860px) { .grid3 { grid-template-columns: 1fr; } }
+      .card {
+        background: var(--panel); padding: 24px; border-right: 1.5px solid var(--ink);
+        transition: background 0.2s var(--ease); position: relative;
+      }
+      .card:last-child { border-right: none; }
+      @media (max-width: 860px) { .card { border-right: none; border-bottom: 1.5px solid var(--ink); } .card:last-child { border-bottom: none; } }
+      .card:hover { background: var(--panel-2); }
+      .card::before { content: ""; position: absolute; top: 0; left: 0; width: 0; height: 4px; background: var(--accent); transition: width 0.3s var(--ease); }
+      .card:hover::before { width: 100%; }
+      .card .k { font-family: var(--mono); font-size: 11.5px; color: var(--accent); letter-spacing: 0.1em; font-weight: 700; }
+      .card h4 { margin: 14px 0 8px; font-size: 16.5px; letter-spacing: -0.01em; font-weight: 800; }
+      .card p { margin: 0; color: var(--text-dim); font-size: 14px; line-height: 1.6; }
+
+      hr.rule { border: none; border-top: 1.5px solid var(--border); margin: 58px 0 0; }
+      footer { padding: 32px 0 56px; color: var(--text-mute); font-size: 12px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; text-transform: uppercase; letter-spacing: 0.05em; }
+      .mono { font-family: var(--mono); }
+      .hide { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <header class="nav" id="nav">
+      <div class="wrap nav-in">
+        <div class="brand"><span class="mark">🛡</span> CodeGuardian<span style="color:var(--accent)">AI</span></div>
+        <div class="nav-spacer"></div>
+        <a class="link" href="#try">Try it</a>
+        <a class="link" href="#how">How it works</a>
+        <a class="link" href="#about">About</a>
+        <button class="icon-btn" id="theme" aria-label="Toggle color theme" title="Toggle light / dark">☾</button>
+      </div>
+    </header>
+
+    <!-- ===================== HERO ===================== -->
+    <section class="hero" id="try">
+      <div class="wrap hero-grid">
+        <div class="reveal">
+          <span class="badge"><span class="dot"></span> Runs locally · no API key · &lt;1s per review</span>
+          <h1>Ship code that<br /><span class="grad">passed review.</span></h1>
+          <p class="lede">
+            A fleet of AI agents scans every change for security, architecture, performance and more —
+            reaching a consensus verdict with one-click fixes. Paste code or a public PR to watch it run.
+          </p>
+          <div class="cta-row">
+            <a class="btn primary" href="#try">Run a review →</a>
+            <button class="btn ghost" id="sampleBtn2" type="button">Load a vulnerable sample</button>
+          </div>
+          <div class="stats">
+            <div class="stat"><div class="n">8</div><div class="l">agents</div></div>
+            <div class="stat"><div class="n">6</div><div class="l">CWE classes</div></div>
+            <div class="stat"><div class="n">&lt;1s</div><div class="l">per review</div></div>
+          </div>
+        </div>
+
+        <!-- live console -->
+        <div class="console reveal" id="console">
+          <div class="scan"></div>
+          <div class="console-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="console-title" id="consoleTitle">reviewer — ready</span>
+          </div>
+          <div class="tabs" role="tablist" aria-label="Input mode">
+            <button class="tab" id="tab-code" role="tab" aria-selected="true" aria-controls="pane-code">Paste code</button>
+            <button class="tab" id="tab-pr" role="tab" aria-selected="false" aria-controls="pane-pr">GitHub PR link</button>
+          </div>
+
+          <div class="pane" id="pane-code" role="tabpanel">
+            <div class="field-row">
+              <input type="text" id="filename" value="app.py" aria-label="File name" spellcheck="false" />
+            </div>
+            <textarea id="code" spellcheck="false" aria-label="Code to review"></textarea>
+            <div class="pane-actions">
+              <button class="linklike" id="sampleBtn" type="button">↺ Load sample</button>
+              <label class="linklike">⬆ Upload file
+                <input type="file" id="file" class="hide" accept=".py,.js,.ts,.tsx,.go,.rb,.java,.tf,.yml,.yaml,Dockerfile" />
+              </label>
+              <span class="spacer"></span>
+              <button class="btn primary" id="runCode" type="button">Review code</button>
+            </div>
+          </div>
+
+          <div class="pane hide" id="pane-pr" role="tabpanel">
+            <input type="text" id="prUrl" placeholder="https://github.com/owner/repo/pull/123" aria-label="Public GitHub pull-request URL" spellcheck="false" />
+            <div class="pane-actions">
+              <span class="mono" style="font-size:12px;color:var(--text-mute)">Public PRs only · fetched securely</span>
+              <span class="spacer"></span>
+              <button class="btn primary" id="runPr" type="button">Review PR</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== RESULTS ===================== -->
+    <section id="results" class="wrap hide">
+      <div class="results-head">
+        <div class="ring-wrap" style="position:relative">
+          <div style="position:relative;width:116px;height:116px">
+            <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+              <circle class="track" cx="60" cy="60" r="52"></circle>
+              <circle class="val" id="ringVal" cx="60" cy="60" r="52" stroke-dasharray="326.7" stroke-dashoffset="326.7"></circle>
+            </svg>
+            <div class="ring-label"><div style="text-align:center"><div class="ring-num" id="scoreNum">–</div><div class="ring-den">/ 100</div></div></div>
+          </div>
+          <div>
+            <div class="eyebrow">Engineering score</div>
+            <div id="verdict" class="verdict v-comment" style="margin-top:10px">—</div>
+          </div>
+        </div>
+        <div class="chips" id="chips"></div>
+      </div>
+
+      <div id="errBox" class="err hide"></div>
+
+      <div class="section-label"><h3>AI suggestions</h3><span id="findCount"></span></div>
+      <div id="findings"></div>
+
+      <div id="fixesBlock" class="hide">
+        <div class="section-label"><h3>Auto-fixes</h3><span>one-click suggestions — you apply them, never auto-applied</span></div>
+        <div id="fixes"></div>
+      </div>
+    </section>
+
+    <!-- ===================== HOW ===================== -->
+    <section id="how" class="wrap section reveal">
+      <div class="eyebrow">How it works</div>
+      <h3 class="head">Consensus from a team of specialists</h3>
+      <div class="grid3">
+        <div class="card"><div class="k">01 · TRIAGE</div><h4>Route the change</h4><p>Only the relevant agents run for a given diff — a Go backend PR skips the accessibility checks. Faster and cheaper.</p></div>
+        <div class="card"><div class="k">02 · REVIEW</div><h4>Agents run in parallel</h4><p>Security, Architecture, Performance, Testing, DevOps, Accessibility, Docs and an AI Reviewer each inspect the code at once.</p></div>
+        <div class="card"><div class="k">03 · CONSENSUS</div><h4>Weighted verdict + fixes</h4><p>Findings are deduped and weighted by confidence into a score and a verdict, with validated fix suggestions.</p></div>
+      </div>
+    </section>
+
+    <!-- ===================== ABOUT ===================== -->
+    <section id="about" class="wrap section reveal">
+      <div class="eyebrow">About</div>
+      <h3 class="head">Security is a feature, not an afterthought</h3>
+      <p class="lede" style="max-width:70ch">
+        CodeGuardian AI is an enterprise-grade, multi-agent code-review platform. It's deterministic-first
+        (every security claim starts from a real rule, not a hunch), remembers each repository over time,
+        and treats all input as untrusted. This page runs entirely on your machine — no API key, no code
+        leaves the server.
+      </p>
+      <div class="grid3">
+        <div class="card"><div class="k">DETERMINISTIC-FIRST</div><h4>Trustworthy by design</h4><p>Scanners find issues; the LLM only explains and prioritizes — it can never suppress a real finding.</p></div>
+        <div class="card"><div class="k">EXPLAINABLE</div><h4>Every finding, justified</h4><p>Why · Impact · Alternative · References (CWE/OWASP) · Complexity · Confidence — on every single result.</p></div>
+        <div class="card"><div class="k">PRIVATE</div><h4>Runs locally</h4><p>Static analysis only, no code execution, no network calls in this demo. Secrets are redacted before anything is logged.</p></div>
+      </div>
+      <hr class="rule" />
+    </section>
+
+    <footer class="wrap">
+      <span>🛡 CodeGuardian AI — offline demo</span>
+      <span class="mono">POST /api/v1/analyze/code · /pr</span>
+    </footer>
+
+    <script>
+      // ---------- theme (light is the default / main UI; dark is opt-in) ----------
+      const root = document.documentElement;
+      const themeBtn = document.getElementById("theme");
+      const saved = localStorage.getItem("cg-theme");
+      const setTheme = (t) => {
+        root.setAttribute("data-theme", t);
+        themeBtn.textContent = t === "dark" ? "☀" : "☾";
+        themeBtn.setAttribute("aria-pressed", t === "dark");
+      };
+      setTheme(saved === "dark" ? "dark" : "light");
+      themeBtn.onclick = () => {
+        const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+        setTheme(next);
+        localStorage.setItem("cg-theme", next);
+      };
+
+      // ---------- sticky nav border on scroll ----------
+      const nav = document.getElementById("nav");
+      const onScroll = () => nav.classList.toggle("scrolled", window.scrollY > 6);
+      window.addEventListener("scroll", onScroll, { passive: true });
+      onScroll();
+
+      // ---------- scroll-reveal (respects reduced motion via CSS) ----------
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+      }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
+      document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+
+      // ---------- tabs ----------
+      const tabCode = document.getElementById("tab-code");
+      const tabPr = document.getElementById("tab-pr");
+      const paneCode = document.getElementById("pane-code");
+      const panePr = document.getElementById("pane-pr");
+      function selectTab(which) {
+        const code = which === "code";
+        tabCode.setAttribute("aria-selected", code); tabPr.setAttribute("aria-selected", !code);
+        paneCode.classList.toggle("hide", !code); panePr.classList.toggle("hide", code);
+      }
+      tabCode.onclick = () => selectTab("code");
+      tabPr.onclick = () => selectTab("pr");
+
+      // ---------- sample ----------
+      const SAMPLE = [
+        "import hashlib, sqlite3, requests, yaml",
+        "from flask import Flask, request",
+        "",
+        "app = Flask(__name__)",
+        "API_TOKEN = 'ghp_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE01'",
+        "DEBUG = True",
+        "",
+        "def login(username, password):",
+        "    cur = sqlite3.connect('app.db').cursor()",
+        "    cur.execute(f\"SELECT * FROM users WHERE name='{username}'\")",
+        "    return hashlib.md5(password.encode()).hexdigest()",
+        "",
+        "@app.route('/run')",
+        "def run_expr():",
+        "    return str(eval(request.args.get('expr', '0')))",
+        "",
+        "def fetch(url):",
+        "    return requests.get(url, verify=False)",
+      ].join("\n");
+      const codeEl = document.getElementById("code");
+      const loadSample = () => { codeEl.value = SAMPLE; selectTab("code"); codeEl.focus(); };
+      document.getElementById("sampleBtn").onclick = loadSample;
+      document.getElementById("sampleBtn2").onclick = () => { loadSample(); location.hash = "#try"; };
+      codeEl.value = SAMPLE;
+
+      // ---------- upload ----------
+      document.getElementById("file").addEventListener("change", (e) => {
+        const f = e.target.files[0]; if (!f) return;
+        document.getElementById("filename").value = f.name;
+        f.text().then((t) => { codeEl.value = t.slice(0, 100000); });
+      });
+
+      // ---------- run ----------
+      const consoleEl = document.getElementById("console");
+      const titleEl = document.getElementById("consoleTitle");
+      const results = document.getElementById("results");
+      const errBox = document.getElementById("errBox");
+
+      async function analyze(endpoint, payload, label) {
+        consoleEl.classList.add("busy");
+        titleEl.textContent = "reviewer — scanning " + label + "…";
+        errBox.classList.add("hide");
+        try {
+          const r = await fetch("/api/v1/analyze/" + endpoint, {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+          });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.detail || ("Request failed (" + r.status + ")"));
+          render(data);
+          titleEl.textContent = "reviewer — done";
+        } catch (err) {
+          results.classList.remove("hide");
+          errBox.classList.remove("hide");
+          errBox.textContent = "⚠ " + err.message;
+          document.getElementById("findings").innerHTML = "";
+          document.getElementById("fixesBlock").classList.add("hide");
+          titleEl.textContent = "reviewer — error";
+        } finally {
+          consoleEl.classList.remove("busy");
+        }
+      }
+      document.getElementById("runCode").onclick = () =>
+        analyze("code", { filename: document.getElementById("filename").value || "snippet.py", code: codeEl.value }, "code");
+      document.getElementById("runPr").onclick = () =>
+        analyze("pr", { url: document.getElementById("prUrl").value.trim() }, "PR");
+
+      // ---------- render ----------
+      const esc = (s) => (s == null ? "" : String(s).replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c])));
+      const CIRC = 326.7;
+
+      function render(d) {
+        results.classList.remove("hide");
+        // score ring
+        const score = Number(d.overall) || 0;
+        const ring = document.getElementById("ringVal");
+        ring.style.strokeDashoffset = CIRC * (1 - score / 100);
+        ring.style.stroke = score >= 90 ? "var(--good)" : score >= 75 ? "var(--low)" : score >= 50 ? "var(--med)" : "var(--crit)";
+        document.getElementById("scoreNum").textContent = score.toFixed(0);
+        // verdict
+        const v = document.getElementById("verdict");
+        const vc = d.verdict === "REQUEST_CHANGES" ? "v-block" : d.verdict === "APPROVE" ? "v-approve" : "v-comment";
+        v.className = "verdict " + vc;
+        v.textContent = d.verdict.replace("_", " ");
+        // chips
+        const c = d.counts || {};
+        document.getElementById("chips").innerHTML =
+          [["findings", c.total], ["critical", c.critical], ["high", c.high], ["auto-fixes", c.fixes]]
+          .map(([k, n]) => `<span class="chip">${k} <b>${n ?? 0}</b></span>`).join("");
+        // findings
+        const F = d.findings || [];
+        document.getElementById("findCount").textContent = F.length ? F.length + " issues, most severe first" : "";
+        document.getElementById("findings").innerHTML = F.length
+          ? F.map(findingCard).join("")
+          : `<div class="empty">No issues found — this change looks clean. ✓</div>`;
+        // fixes
+        const fixes = F.filter((f) => f.suggestion);
+        const fb = document.getElementById("fixesBlock");
+        fb.classList.toggle("hide", fixes.length === 0);
+        document.getElementById("fixes").innerHTML = fixes.map(fixCard).join("");
+        results.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      function findingCard(f) {
+        const loc = f.file ? `${esc(f.file)}${f.line ? ":" + f.line : ""}` : "(repository)";
+        return `<div class="finding sev-${esc(f.severity)}">
+          <div class="stripe"></div>
+          <div class="body">
+            <div class="top">
+              <span class="sev-pill">${esc(f.severity)}</span>
+              <h4>${esc(f.title)}</h4>
+            </div>
+            <div class="loc">${loc} · ${esc(f.dimension)}</div>
+            <div class="expl">
+              <div><b>Why</b> ${esc(f.why)}</div>
+              <div><b>Impact</b> ${esc(f.impact)}</div>
+              ${f.alternative ? `<div><b>Fix</b> ${esc(f.alternative)}</div>` : ""}
+            </div>
+            <div class="meta">
+              ${f.cwe ? `<span class="tag">${esc(f.cwe)}</span>` : ""}
+              <span class="tag">confidence ${Math.round((f.confidence || 0) * 100)}%</span>
+              ${f.suggestion ? `<span class="tag" style="color:var(--good)">auto-fix ✓</span>` : ""}
+            </div>
+          </div>
+        </div>`;
+      }
+
+      function fixCard(f) {
+        const loc = f.file ? `${esc(f.file)}${f.line ? ":" + f.line : ""}` : "";
+        return `<div class="fix">
+          <span class="loc">${loc} — ${esc(f.title)}</span>
+          <div class="diff">
+            <div class="del">- ${esc(f.suggestion.original.trim())}</div>
+            <div class="add">+ ${esc(f.suggestion.fixed.trim())}</div>
+          </div>
+        </div>`;
+      }
+    </script>
+  </body>
+</html>

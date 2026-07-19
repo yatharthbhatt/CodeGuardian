@@ -1,0 +1,102 @@
+name: CI
+
+# CodeGuardian AI "eats its own dog food" (PRD §9.7): lint, type-check, test, plus a
+# secret scan and a dependency/vulnerability scan on every push and PR. CI must be green.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend — lint, type, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,postgres,phase1,phase3,phase5]"
+      - name: Ruff (lint incl. flake8-bandit SAST rules)
+        run: ruff check .
+      - name: Ruff (format check)
+        run: ruff format --check .
+      - name: mypy (strict)
+        run: mypy app evals
+      - name: Bandit (SAST)
+        run: pip install bandit && bandit -q -r app -x app/agents/security.py,app/patch
+      - name: pytest
+        run: pytest -q
+      - name: Eval harness (detection-quality gate)
+        run: python -m evals
+        env:
+          CG_GITHUB_WEBHOOK_SECRET: ci-dummy
+
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+  dependency-scan:
+    name: Dependency / vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem scan (deps + misconfig + secrets)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+      - name: OSV scanner
+        uses: google/osv-scanner-action@v1.9.0
+        with:
+          scan-args: |-
+            --recursive
+            ./backend
+        continue-on-error: false
+
+  dast:
+    name: DAST (OWASP ZAP baseline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Start API
+        working-directory: backend
+        env:
+          CG_GITHUB_WEBHOOK_SECRET: ci-dummy
+        run: |
+          python -m pip install -e ".[phase1,phase3,phase5]"
+          nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8000/healthz && break || sleep 1; done
+      - name: ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: "http://localhost:8000"
+          fail_action: false

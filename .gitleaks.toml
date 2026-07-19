@@ -1,0 +1,28 @@
+# Gitleaks config for CodeGuardian AI.
+#
+# This is a *security tool that detects secrets*, so its test fixtures, eval dataset, demos,
+# detection regexes, and the vulnerable demo repo deliberately contain FAKE, non-functional
+# secret-shaped strings. They are allowlisted below so the secret scan doesn't false-positive.
+# Real secrets are never committed (see .gitignore: .env, *.pem, *.key, secrets/).
+
+title = "CodeGuardian AI gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Intentional fake/example secrets used to build & test a secret detector"
+paths = [
+  '''backend/tests/.*''',
+  '''backend/evals/.*''',
+  '''backend/examples/.*''',
+  '''backend/app/core/security/redaction\.py''',   # detection regexes, not secrets
+  '''backend/app/web/.*''',                         # homepage demo sample (fake token)
+  '''backend/\.env\.example''',                     # documented placeholders only
+  '''demo-repo/.*''',                               # intentionally-vulnerable sample repo
+  '''\.gitleaks\.toml''',
+]
+regexes = [
+  # Obvious placeholder patterns (repeated chars / the literal FAKE/EXAMPLE markers).
+  '''(A{16,}|FAKE|EXAMPLE|change-me|dev-only|dummy)''',
+]
