@@ -205,6 +205,14 @@ sandbox for untrusted code, tenant isolation by construction, and a tamper-evide
 | 5 | Observability (Prom/OTel/cost) + tenant-scoped dashboard API + React UI | ✅ |
 | 6 | Enterprise hardening — audit log · RBAC/RLS · sandbox · evals · supply chain | ✅ |
 
+
+<img width="1917" height="1078" alt="Screenshot 2026-07-15 175325" src="https://github.com/user-attachments/assets/bfdde673-02b9-4f23-87f6-d264c64252af" />
+<img width="1917" height="1078" alt="Screenshot 2026-07-15 180332" src="https://github.com/user-attachments/assets/1fbc9d37-2fad-4439-b6ce-f2a36c4db64c" />
+<img width="1917" height="1078" alt="Screenshot 2026-07-15 180345" src="https://github.com/user-attachments/assets/e95cd08a-1b65-480b-a2f9-c5ebbfe07a75" />
+<img width="1917" height="1078" alt="Screenshot 2026-07-15 180354" src="https://github.com/user-attachments/assets/9768b2ec-b198-49f4-b479-cca364b397c4" />
+<img width="1917" height="1078" alt="Screenshot 2026-07-15 180430" src="https://github.com/user-attachments/assets/7ba5253b-dfe5-4d1c-8c12-e7b5e7d2426c" />
+
+
 ## 📚 Docs
 
 - [Full product & engineering spec (PRD)](docs/CodeGuardian-AI-PRD.md)
